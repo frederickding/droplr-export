@@ -37,6 +37,8 @@ if(php_sapi_name() == 'cli') {
 			die("Can't write to the destination path you specified.\n");
 		} elseif(!is_dir($argv[2]) && !is_writable(dirname($argv[2]))) {
 			die("Couldn't use the destination path you specified.\n");
+		} else {
+			$destination = realpath($argv[2]);
 		}
 	}
 }
@@ -61,6 +63,7 @@ $curl = curl_init();
 foreach($json as $drop) {
 	$_destination = $destination;
 	$_filename = sprintf('%s_%s', $drop->code, $drop->title);
+	$_download_result = false;
 	switch($drop->type) {
 		case 'note':
 			$_destination .= '/notes';
@@ -68,8 +71,12 @@ foreach($json as $drop) {
 			$_ext = ($drop->variant == 'plain') ? 'txt' : $drop->variant;
 			$_filename = sprintf('%s.%s', $drop->code, $_ext);
 
-			$_download_result = download_file("http://d.pr/{$drop->code}+", 
-				$_filename, $_destination, $curl);
+			try {
+				$_download_result = download_file("http://d.pr/{$drop->code}+", 
+					$_filename, $_destination, $curl);
+			} catch(Exception $e) {
+				echo $e->getMessage() . "\n";
+			}
 			break;
 		case 'image':
 		case 'audio':
@@ -77,15 +84,23 @@ foreach($json as $drop) {
 		case 'file':
 			$_destination .= "/{$drop->type}s";
 
-			$_download_result = download_file("http://d.pr/{$drop->code}+", 
-				$_filename, $_destination, $curl);
+			try {
+				$_download_result = download_file("http://d.pr/{$drop->code}+", 
+					$_filename, $_destination, $curl);
+			} catch(Exception $e) {
+				echo $e->getMessage() . "\n";
+			}
 			break;
 		case 'link':
 			$_destination .= '/links';
 			$_filename = 'debug.tmp';
 
-			$_download_result = download_file("http://d.pr/{$drop->code}+",
-				$_filename, $_destination, $curl);
+			try {
+				$_download_result = download_file("http://d.pr/{$drop->code}+", 
+					$_filename, $_destination, $curl);
+			} catch(Exception $e) {
+				echo $e->getMessage() . "\n";
+			}
 			if($_download_result) {
 				$_real_url = curl_getinfo($curl, CURLINFO_EFFECTIVE_URL);
 				file_put_contents(realpath($_destination) . '/links.txt', 
@@ -107,11 +122,16 @@ echo "{$successful} of ${total} retrieved.\n";
 
 function download_file($_url, $_filename, $_path, $_handle = null) {
 	set_time_limit(0);
-	$_path = realpath($_path);
+	
+	if(!realpath($_path) && !is_dir(dirname($_path))) {
+		throw new Exception('Destination path and its parent directory do not exist');
+	}
 	$_filename = basename($_filename);
-	if((!is_dir($_path) && !mkdir($_path)) || !is_writable($_path)) {
+	if((!is_dir($_path) && !@mkdir($_path)) || !is_writable($_path)) {
 		throw new Exception('Destination path not existent or writable');
 	}
+	$_path = realpath($_path);
+
 	$file = @fopen($_path . '/' . $_filename, 'w');
 
 	$options = array(
