@@ -19,3 +19,10 @@ Now that Droplr is going all-paid, here's a way to get back your own data.
    - **Web:** Customize the variables `$filename` and `$destination` to 
    your needs, and load the script in a browser. Note that this is untested, 
    and therefore unsupported.
+
+## Known issues
+
+- [ ] Fetching 'link'-type drops currently downloads the entire body of the 
+  link's target (e.g. if http://example.com/huge-1GB-video.mp4 is the target, 
+  cURL will attempt to fetch the entire body to the debug.tmp file). Can be 
+  replaced by using a HEAD request.
